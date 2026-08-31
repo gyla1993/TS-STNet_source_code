@@ -1,0 +1,13 @@
+{
+  "model": "TF-STNet",
+  "task": "24-hour wind-speed forecasting",
+  "batch_size": 64,
+  "num_nodes": 60,
+  "history_length": 24,
+  "prediction_length": 24,
+  "input_dim": 1,
+  "output_dim": 1,
+  "d_model": 64,
+  "nearest_nwp_neighbors": 2,
+  "seed": 2026
+}
