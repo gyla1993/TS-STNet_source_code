@@ -88,6 +88,10 @@ def merge_args(args: argparse.Namespace, config: dict) -> dict:
         values.setdefault(key, value)
     if values["data"] is None:
         raise ValueError("A training archive is required. Pass --data path/to/train.npz.")
+    if int(values["epochs"]) <= 0 or int(values["batch_size"]) <= 0:
+        raise ValueError("epochs and batch_size must be positive integers.")
+    if float(values["learning_rate"]) <= 0 or float(values["weight_decay"]) < 0:
+        raise ValueError("learning_rate must be positive and weight_decay cannot be negative.")
     if not 0 <= float(values["val_fraction"]) < 1 or not 0 <= float(values["test_fraction"]) < 1:
         raise ValueError("val_fraction and test_fraction must be in [0, 1).")
     if float(values["val_fraction"]) + float(values["test_fraction"]) >= 1:
@@ -191,6 +195,8 @@ def validate_splits(splits: dict[str, dict[str, np.ndarray]]) -> None:
         if set(batch) != required:
             raise ValueError(f"{split} split must contain exactly {sorted(required)}.")
         n_samples = batch["obs_his"].shape[0]
+        if n_samples == 0:
+            raise ValueError(f"{split} split is empty.")
         expected = {
             "obs_his": (n_samples, config.num_nodes, config.history_len),
             "obs_fut": (n_samples, config.num_nodes, config.prediction_len),
