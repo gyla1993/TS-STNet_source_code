@@ -25,10 +25,14 @@ inference without access to the complete, non-public meteorological dataset.
 | `data/adj_mat.pkl` | Spatial adjacency matrix used by the released model |
 | `configs/model.json` | Key architecture and experiment settings |
 | `run.py` | Deterministic command-line inference entry point |
+| `trainer.py` | Self-contained training loop, inverse scaling, and regression metrics |
+| `run_wind_speed.py` | Training/validation/test command-line entry point |
+| `configs/train.json` | Auditable default training configuration |
 
-The complete training dataset, geographic labels, and training script are not
-included because the underlying meteorological data are not publicly
-redistributable. Training is therefore outside the scope of this release.
+The complete training dataset and geographic labels are not included because
+the underlying meteorological data are not publicly redistributable. The
+training code is included; only the private data-dependent preparation step is
+outside the scope of this release.
 
 ## Quick start
 
@@ -91,6 +95,74 @@ script validates required array names, tensor shapes, finite values, graph
 dimensions, and target normalization before loading the checkpoint, so input
 format errors are reported early.
 
+## Reproduce training and evaluation
+
+The supplied `run_wind_speed.py` is the complete training entry point for the
+released TF-STNet implementation. It uses Adam optimization, physical-unit
+MAE as the training objective, deterministic seeding, validation-MAE model
+selection, and a final held-out test evaluation. The best model is saved as
+`best_model.pth`; `history.json`, `train_config.json`, and `test_metrics.json`
+record the settings and metrics needed to audit a run.
+
+The repository intentionally does not claim a new training result from the
+small inference-only example batch. To reproduce the paper experiment, supply
+the authors' complete prepared archive (or an equivalent archive with the
+format below):
+
+```bash
+python run_wind_speed.py \
+  --data path/to/wind_speed_train.npz \
+  --config configs/train.json \
+  --device cuda:0 \
+  --epochs 50
+```
+
+Before a long run, validate the archive, graph, and model wiring without
+updating weights:
+
+```bash
+python run_wind_speed.py \
+  --data path/to/wind_speed_train.npz \
+  --dry-run
+```
+
+For an archive containing unsplit arrays, the script makes a seeded random
+split using `val_fraction` and `test_fraction` from the config. For a formal
+paper reproduction, explicit split arrays are preferred: use the prefixes
+`train_`, `val_`, and `test_` (for example, `train_obs_his`). This prevents
+accidental changes to the train/validation/test membership when comparing
+runs.
+
+### Training archive format
+
+Each split uses the same arrays as the inference batch. The first dimension is
+the number of samples `B`; station and temporal dimensions are fixed by the
+released checkpoint:
+
+```text
+obs_his                 [B, 60, 24]              normalized station history
+obs_fut                 [B, 60, 24]              future station targets (physical units)
+nwp_his, nwp_fut       [B, latitude, longitude, 24]
+his_mark, fut_mark     [B, 24, 5]                temporal covariates
+station_coordinates     [60, 2]                  station coordinates
+grid_coordinates        [latitude, longitude, 2] NWP grid coordinates
+target_mean, target_std scalar                   target inverse-scaling statistics
+```
+
+`target_mean` and `target_std` are shared scalar statistics from the training
+set. The trainer compares inverse-transformed predictions with `obs_fut` in
+physical units, while the model checkpoint stores the same normalized output
+parameterization used by `run.py`. The adjacency file remains the tuple
+`(sensor_ids, id_map, adjacency_matrix)` documented above.
+
+### Reported metrics
+
+Every epoch and the final test evaluation report MAE, RMSE, symmetric MAPE,
+and Pearson correlation over all samples, stations, and forecast horizons.
+These definitions are implemented in `trainer.py`, so reported values do not
+depend on an external metrics package. The release does not silently invent a
+fraction skill score or other metric that is not defined by the public code.
+
 ## Input format
 
 `run.py` expects an `.npz` archive containing the following arrays:
@@ -116,7 +188,8 @@ The adjacency pickle follows the original experiment format:
 ├── checkpoints/
 │   └── tf_stnet_wind_speed.pth
 ├── configs/
-│   └── model.json
+│   ├── model.json
+│   └── train.json
 ├── data/
 │   ├── adj_mat.pkl
 │   └── example_test_batch.npz
@@ -126,6 +199,8 @@ The adjacency pickle follows the original experiment format:
 │   │   ├── gcn.py
 │   │   └── tcn.py
 │   └── tf_stnet.py
+├── trainer.py
+├── run_wind_speed.py
 ├── requirements.txt
 └── run.py
 ```
@@ -135,8 +210,8 @@ The adjacency pickle follows the original experiment format:
 - Inference runs in evaluation mode with `torch.inference_mode()`.
 - The random seed is fixed to `2026` for consistent execution.
 - CPU is the default device; CUDA is optional.
-- Generated files under `outputs/`, IDE metadata, Python caches, and virtual
-  environments are excluded by `.gitignore`.
+- Generated files under `outputs/` and `runs/`, IDE metadata, Python caches,
+  logs, and virtual environments are excluded by `.gitignore`.
 
 ## Citation
 

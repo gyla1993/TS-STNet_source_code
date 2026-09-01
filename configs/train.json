@@ -1,0 +1,13 @@
+{
+  "data": null,
+  "adjacency": "data/adj_mat.pkl",
+  "output_dir": "runs/tf_stnet",
+  "device": "cpu",
+  "epochs": 50,
+  "batch_size": 32,
+  "learning_rate": 0.001,
+  "weight_decay": 0.0001,
+  "seed": 2026,
+  "val_fraction": 0.1,
+  "test_fraction": 0.1
+}
