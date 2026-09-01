@@ -1,4 +1,4 @@
-# TF-STNet: Wind-Speed Forecasting
+# TF-STNet: A Time-Frequency Dual-Branch Spatiotemporal Network for NWP-to-Station Bias Correction
 
 This repository contains the code and example files for the **TF-STNet**
 wind-speed forecasting model described in the accompanying manuscript. The
