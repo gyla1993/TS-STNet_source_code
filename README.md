@@ -1,38 +1,34 @@
-# TF-STNet: Reproducible Inference Release
+# TF-STNet: Wind-Speed Forecasting
 
-This repository provides the official inference implementation and a compact
-release package for the **TF-STNet** wind-speed forecasting model described in
-the accompanying manuscript. TF-STNet combines three complementary views of
-the input signal:
+This repository contains the code and example files for the **TF-STNet**
+wind-speed forecasting model described in the accompanying manuscript. The
+model combines three views of the input signal:
 
 - gated temporal convolutions for recent observations and numerical weather
   prediction (NWP) sequences;
 - bidirectional graph convolution for spatial interactions between stations;
 - frequency-aware attention over the nearest NWP grid points.
 
-The released checkpoint maps **24 hours of history to the following 24 hours**
-at **60 stations**. The package is designed for reviewers and researchers who
-want to inspect the implementation and reproduce the released test-batch
-inference without access to the complete, non-public meteorological dataset.
+The provided checkpoint maps **24 hours of history to the following 24 hours**
+at **60 stations**.
 
 ## What is included
 
 | Component | Description |
 | --- | --- |
 | `model/` | TF-STNet architecture and temporal, graph, and frequency-aware layers |
-| `checkpoints/tf_stnet_wind_speed.pth` | Released PyTorch checkpoint |
+| `checkpoints/tf_stnet_wind_speed.pth` | PyTorch checkpoint |
 | `data/example_test_batch.npz` | One anonymized test batch with model inputs, targets, coordinates, and normalization statistics |
-| `data/adj_mat.pkl` | Spatial adjacency matrix used by the released model |
+| `data/adj_mat.pkl` | Spatial adjacency matrix used by the model |
 | `configs/model.json` | Key architecture and experiment settings |
 | `run.py` | Deterministic command-line inference entry point |
 | `trainer.py` | Self-contained training loop, inverse scaling, and regression metrics |
 | `run_wind_speed.py` | Training/validation/test command-line entry point |
-| `configs/train.json` | Auditable default training configuration |
+| `configs/train.json` | Default training configuration |
 
-The complete training dataset and geographic labels are not included because
-the underlying meteorological data are not publicly redistributable. The
-training code is included; only the private data-dependent preparation step is
-outside the scope of this release.
+The complete meteorological dataset and geographic labels are not included
+because they are not publicly redistributable. The training code expects a
+prepared `.npz` archive, described below.
 
 ## Quick start
 
@@ -50,7 +46,7 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Run the released example on CPU:
+Run the example on CPU:
 
 ```bash
 python run.py
@@ -82,8 +78,7 @@ The command creates the output directory (if needed) and writes:
   `[batch, station, horizon]`;
 - `metrics.json`: batch size, prediction shape, device, and overall MAE.
 
-For the included 64-sample release batch, the packaged reference metadata
-reports:
+For the included 64-sample example batch, `outputs/metrics.json` reports:
 
 ```text
 prediction shape: [64, 60, 24]
@@ -97,17 +92,16 @@ format errors are reported early.
 
 ## Reproduce training and evaluation
 
-The supplied `run_wind_speed.py` is the complete training entry point for the
-released TF-STNet implementation. It uses Adam optimization, physical-unit
-MAE as the training objective, deterministic seeding, validation-MAE model
-selection, and a final held-out test evaluation. The best model is saved as
+`run_wind_speed.py` is the training entry point for TF-STNet. It uses Adam
+optimization, physical-unit MAE as the training objective, deterministic
+seeding, validation-MAE model selection, and a final held-out test evaluation.
+The best model is saved as
 `best_model.pth`; `history.json`, `train_config.json`, and `test_metrics.json`
 record the settings and metrics needed to audit a run.
 
-The repository intentionally does not claim a new training result from the
-small inference-only example batch. To reproduce the paper experiment, supply
-the authors' complete prepared archive (or an equivalent archive with the
-format below):
+The example batch is intended to check the inference path; it is not a
+training set. To reproduce the paper experiment, supply the complete prepared
+archive (or an equivalent archive with the format below):
 
 ```bash
 python run_wind_speed.py \
@@ -127,8 +121,8 @@ python run_wind_speed.py \
 ```
 
 For an archive containing unsplit arrays, the script makes a seeded random
-split using `val_fraction` and `test_fraction` from the config. For a formal
-paper reproduction, explicit split arrays are preferred: use the prefixes
+split using `val_fraction` and `test_fraction` from the config. For a paper
+reproduction, explicit split arrays are preferred: use the prefixes
 `train_`, `val_`, and `test_` (for example, `train_obs_his`). This prevents
 accidental changes to the train/validation/test membership when comparing
 runs.
@@ -137,7 +131,7 @@ runs.
 
 Each split uses the same arrays as the inference batch. The first dimension is
 the number of samples `B`; station and temporal dimensions are fixed by the
-released checkpoint:
+provided checkpoint:
 
 ```text
 obs_his                 [B, 60, 24]              normalized station history
@@ -152,16 +146,15 @@ target_mean, target_std scalar                   target inverse-scaling statisti
 `target_mean` and `target_std` are shared scalar statistics from the training
 set. The trainer compares inverse-transformed predictions with `obs_fut` in
 physical units, while the model checkpoint stores the same normalized output
-parameterization used by `run.py`. The adjacency file remains the tuple
+parameterization used by `run.py`. The adjacency file is the tuple
 `(sensor_ids, id_map, adjacency_matrix)` documented above.
 
 ### Reported metrics
 
 Every epoch and the final test evaluation report MAE, RMSE, symmetric MAPE,
 and Pearson correlation over all samples, stations, and forecast horizons.
-These definitions are implemented in `trainer.py`, so reported values do not
-depend on an external metrics package. The release does not silently invent a
-fraction skill score or other metric that is not defined by the public code.
+These definitions are implemented in `trainer.py`, so the reported values do
+not depend on an external metrics package.
 
 ## Input format
 
@@ -215,5 +208,4 @@ The adjacency pickle follows the original experiment format:
 
 ## Citation
 
-If you use this release, please cite the accompanying TF-STNet manuscript and
-retain the release version when reporting results.
+If you use this code, please cite the accompanying TF-STNet manuscript.
